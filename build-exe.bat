@@ -17,32 +17,38 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-IF NOT EXIST node_modules (
-    echo [1/3] Instalando dependencias necessarias (npm install)...
-    call npm install
-    call npm install --no-save @rollup/rollup-win32-x64-msvc @esbuild/win32-x64
-    if %errorlevel% neq 0 (
-        echo [ERRO] Falha ao instalar dependencias.
-        pause
-        exit /b 1
-    )
-) ELSE (
-    echo [1/3] Dependencias verificadas com sucesso.
+:: Se houver package-lock vindo de outro SO, remove para evitar erro de modulo nativo
+if exist package-lock.json (
+    del /f /q package-lock.json >nul 2>nul
+)
+
+echo [1/3] Verificando e instalando dependencias (npm install)...
+call npm install --include=optional
+if %errorlevel% neq 0 (
+    echo [ERRO] Falha ao instalar dependencias.
+    pause
+    exit /b 1
 )
 
 echo.
 echo [2/3] Compilando frontend e backend (npm run build)...
 call npm run build
 if %errorlevel% neq 0 (
-    echo [ERRO] Falha na compilacao dos arquivos web.
-    pause
-    exit /b 1
+    echo.
+    echo Tentando resolver dependencias nativas do Windows...
+    call npm install --no-save lightningcss-win32-x64-msvc @rollup/rollup-win32-x64-msvc @esbuild/win32-x64
+    call npm run build
+    if %errorlevel% neq 0 (
+        echo [ERRO] Falha na compilacao dos arquivos web.
+        pause
+        exit /b 1
+    )
 )
 
 echo.
 echo [3/3] Empacotando executavel Windows (.exe) com Electron...
 echo Aguarde, isso pode levar de 1 a 2 minutos...
-call npm run electron:build:win
+call npx electron-builder --win --x64
 if %errorlevel% neq 0 (
     echo.
     echo [ERRO] Falha ao gerar o executavel.

@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  validate:
-    name: Validate & Lint
+  build-web:
+    name: Build Web Assets
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -21,25 +21,27 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci || npm install
-          else
-            npm install
-          fi
+        run: npm install
 
       - name: Typecheck & Lint
         run: npm run lint
 
-      - name: Build Web Application
+      - name: Build Application
         run: npm run build
         env:
           NODE_ENV: production
 
-  build-windows-exe:
-    name: Build Windows .EXE App
+      - name: Upload Compiled Dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist/
+          retention-days: 1
+
+  package-windows-exe:
+    name: Package Windows .EXE
     runs-on: windows-latest
-    needs: validate
+    needs: build-web
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,15 +51,18 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: |
-          npm install
-          npm install --no-save @rollup/rollup-win32-x64-msvc @esbuild/win32-x64
+      - name: Download Compiled Web Dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
 
-      - name: Build Windows .EXE (Electron Builder)
-        run: npm run electron:build:win
+      - name: Install Electron and Builder
+        run: npm install --no-save electron electron-builder
+
+      - name: Package Windows Executable (.exe)
+        run: npx electron-builder --win --x64
         env:
-          NODE_ENV: production
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows Executable (.EXE)

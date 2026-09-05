@@ -13,6 +13,7 @@
     "electron:dev": "electron .",
     "electron:build": "npm run build && electron-builder",
     "electron:build:win": "npm run build && electron-builder --win --x64",
+    "electron:pack:win": "electron-builder --win --x64",
     "electron:pack": "npm run build && electron-builder --dir"
   },
   "dependencies": {
@@ -42,10 +43,6 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.63.1",
-    "@esbuild/win32-x64": "^0.25.0"
   },
   "build": {
     "appId": "com.gemini.chat",
