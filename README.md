@@ -88,13 +88,36 @@ Acesse: **`http://localhost:3000`**
 
 ---
 
+## 💻 Como rodar como Aplicativo Desktop (Electron) e Gerar o .EXE
+
+O projeto está totalmente configurado para rodar como aplicativo desktop nativo e gerar instaladores `.exe` para Windows:
+
+### 1. Testar o aplicativo desktop no computador:
+```bash
+# Terminal 1: Inicia o servidor com Vite
+npm run dev
+
+# Terminal 2: Abre a janela desktop do Electron
+npm run electron:dev
+```
+
+### 2. Gerar o executável (.exe) para Windows:
+```bash
+npm run electron:build:win
+```
+O instalador `.exe` (instalador e versão portátil) será gerado na pasta **`dist-electron/`**.
+
+---
+
 ## 🛠️ Comandos disponíveis no projeto
 
 | Comando | Descrição |
 | :--- | :--- |
-| `npm run dev` | Inicia o servidor local com recarregamento rápido |
+| `npm run dev` | Inicia o servidor local com recarregamento rápido (Vite + Express) |
 | `npm run build` | Compila o frontend e o servidor TypeScript para a pasta `dist/` |
 | `npm start` | Executa a versão compilada de produção |
+| `npm run electron:dev` | Abre a janela nativa do Electron conectado ao ambiente local |
+| `npm run electron:build:win` | Compila o projeto e gera os arquivos executáveis `.exe` para Windows |
 | `npm run lint` | Valida tipagens e integridade do código com TypeScript |
 
 ---

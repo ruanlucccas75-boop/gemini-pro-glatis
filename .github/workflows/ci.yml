@@ -9,25 +9,47 @@ on:
 
 jobs:
   build:
-    name: Build & Validate
+    name: Build & Package
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js (Latest LTS)
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
 
-      - name: Typecheck and Lint
+      - name: Typecheck & Lint
         run: npm run lint
 
       - name: Build Application
         run: npm run build
         env:
           NODE_ENV: production
+
+      - name: Archive Built Application (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-app-dist
+          path: |
+            dist/
+            public/
+            package.json
+            package-lock.json
+            .env.example
+            start.bat
+            start.sh
+            README.md
+          retention-days: 14

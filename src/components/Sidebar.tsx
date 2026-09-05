@@ -12,6 +12,8 @@ import {
   Edit2,
   Moon,
   Sun,
+  Search,
+  X,
 } from 'lucide-react';
 import { ChatSession } from '../types';
 
@@ -49,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [activeMenuSessionId, setActiveMenuSessionId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitleInput, setEditTitleInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleStartRename = (session: ChatSession, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,9 +68,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setEditingSessionId(null);
   };
 
+  // Filter sessions by search query in title
+  const query = searchQuery.trim().toLowerCase();
+  const filteredSessions = query
+    ? sessions.filter((s) => s.title.toLowerCase().includes(query))
+    : sessions;
+
   // Group chats by Pinned and Recent
-  const pinnedSessions = sessions.filter((s) => s.isPinned);
-  const regularSessions = sessions.filter((s) => !s.isPinned);
+  const pinnedSessions = filteredSessions.filter((s) => s.isPinned);
+  const regularSessions = filteredSessions.filter((s) => !s.isPinned);
 
   return (
     <>
@@ -84,100 +93,166 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isOpen ? 'w-72 translate-x-0' : '-translate-x-full md:w-0 md:translate-x-0 md:overflow-hidden'
         }`}
       >
-        {/* Top Header & New Chat button */}
-        <div className="p-3 pt-4">
+        {/* Top Header: New Chat button & Search bar */}
+        <div className="p-3 pt-4 space-y-2.5">
           <button
             id="new-chat-btn"
             onClick={() => {
               onNewChat();
               onCloseMobile();
             }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-full bg-[#131314] hover:bg-[#282a2c] text-neutral-200 hover:text-white border border-white/10 transition-all shadow-sm group"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-full bg-[#131314] hover:bg-[#282a2c] text-neutral-200 hover:text-white border border-white/10 transition-all shadow-sm group cursor-pointer"
           >
             <Plus size={18} className="text-[#a8c7fa] group-hover:scale-110 transition-transform" />
             <span className="font-medium text-sm">Nova conversa</span>
           </button>
+
+          {/* Search bar for filtering chats by title */}
+          {sessions.length > 0 && (
+            <div className="relative">
+              <Search
+                size={14}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+              />
+              <input
+                id="sidebar-search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Pesquisar conversas..."
+                className="w-full pl-9 pr-8 py-2 text-xs bg-[#131314]/80 hover:bg-[#131314] focus:bg-[#131314] text-neutral-200 placeholder-neutral-500 rounded-xl border border-white/5 focus:border-[#a8c7fa]/40 focus:outline-none transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  id="clear-sidebar-search-btn"
+                  onClick={() => setSearchQuery('')}
+                  title="Limpar pesquisa"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white p-0.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sessions list (Recentes) */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-          {/* Pinned sessions */}
-          {pinnedSessions.length > 0 && (
-            <div>
-              <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Pin size={11} className="text-[#a8c7fa]" />
-                Fixadas
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+          {/* Empty search state */}
+          {query && filteredSessions.length === 0 ? (
+            <div className="px-3 py-8 text-center">
+              <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-2 text-neutral-400">
+                <Search size={14} />
               </div>
-              <div className="space-y-0.5 mt-1">
-                {pinnedSessions.map((session) => (
-                  <SessionItem
-                    key={session.id}
-                    session={session}
-                    isSelected={session.id === currentSessionId}
-                    isEditing={editingSessionId === session.id}
-                    editTitleInput={editTitleInput}
-                    setEditTitleInput={setEditTitleInput}
-                    onSelectSession={() => {
-                      onSelectSession(session.id);
-                      onCloseMobile();
-                    }}
-                    onSaveRename={(e) => handleSaveRename(session.id, e)}
-                    onStartRename={(e) => handleStartRename(session, e)}
-                    onDelete={() => onDeleteSession(session.id)}
-                    onTogglePin={() => onTogglePinSession(session.id)}
-                    menuOpen={activeMenuSessionId === session.id}
-                    onToggleMenu={(e) => {
-                      e.stopPropagation();
-                      setActiveMenuSessionId(
-                        activeMenuSessionId === session.id ? null : session.id
-                      );
-                    }}
-                  />
-                ))}
-              </div>
+              <p className="text-xs text-neutral-300 font-medium">Nenhuma conversa encontrada</p>
+              <p className="text-[11px] text-neutral-500 mt-1 max-w-[200px] mx-auto truncate">
+                Nenhum título coincide com "{searchQuery}"
+              </p>
+              <button
+                type="button"
+                id="empty-clear-search-btn"
+                onClick={() => setSearchQuery('')}
+                className="mt-3 text-xs text-[#a8c7fa] hover:underline cursor-pointer"
+              >
+                Limpar pesquisa
+              </button>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Pinned sessions */}
+              {pinnedSessions.length > 0 && (
+                <div>
+                  <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Pin size={11} className="text-[#a8c7fa]" />
+                      Fixadas
+                    </span>
+                    {query && (
+                      <span className="text-[10px] text-neutral-500 font-normal">
+                        {pinnedSessions.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-0.5 mt-1">
+                    {pinnedSessions.map((session) => (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        isSelected={session.id === currentSessionId}
+                        isEditing={editingSessionId === session.id}
+                        editTitleInput={editTitleInput}
+                        setEditTitleInput={setEditTitleInput}
+                        onSelectSession={() => {
+                          onSelectSession(session.id);
+                          onCloseMobile();
+                        }}
+                        onSaveRename={(e) => handleSaveRename(session.id, e)}
+                        onStartRename={(e) => handleStartRename(session, e)}
+                        onDelete={() => onDeleteSession(session.id)}
+                        onTogglePin={() => onTogglePinSession(session.id)}
+                        menuOpen={activeMenuSessionId === session.id}
+                        onToggleMenu={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuSessionId(
+                            activeMenuSessionId === session.id ? null : session.id
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* Regular recent sessions */}
-          <div>
-            <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Clock size={11} />
-              Recentes
-            </div>
-            {regularSessions.length === 0 && pinnedSessions.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-neutral-500 text-center">
-                Suas conversas recentes com o Gemini aparecerão aqui.
+              {/* Regular recent sessions */}
+              <div>
+                <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={11} />
+                    {query ? 'Resultados' : 'Recentes'}
+                  </span>
+                  {query && (
+                    <span className="text-[10px] text-neutral-500 font-normal">
+                      {regularSessions.length}
+                    </span>
+                  )}
+                </div>
+                {regularSessions.length === 0 && pinnedSessions.length === 0 ? (
+                  <div className="px-3 py-4 text-xs text-neutral-500 text-center">
+                    Suas conversas recentes com o Gemini aparecerão aqui.
+                  </div>
+                ) : (
+                  <div className="space-y-0.5 mt-1">
+                    {regularSessions.map((session) => (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        isSelected={session.id === currentSessionId}
+                        isEditing={editingSessionId === session.id}
+                        editTitleInput={editTitleInput}
+                        setEditTitleInput={setEditTitleInput}
+                        onSelectSession={() => {
+                          onSelectSession(session.id);
+                          onCloseMobile();
+                        }}
+                        onSaveRename={(e) => handleSaveRename(session.id, e)}
+                        onStartRename={(e) => handleStartRename(session, e)}
+                        onDelete={() => onDeleteSession(session.id)}
+                        onTogglePin={() => onTogglePinSession(session.id)}
+                        menuOpen={activeMenuSessionId === session.id}
+                        onToggleMenu={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuSessionId(
+                            activeMenuSessionId === session.id ? null : session.id
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="space-y-0.5 mt-1">
-                {regularSessions.map((session) => (
-                  <SessionItem
-                    key={session.id}
-                    session={session}
-                    isSelected={session.id === currentSessionId}
-                    isEditing={editingSessionId === session.id}
-                    editTitleInput={editTitleInput}
-                    setEditTitleInput={setEditTitleInput}
-                    onSelectSession={() => {
-                      onSelectSession(session.id);
-                      onCloseMobile();
-                    }}
-                    onSaveRename={(e) => handleSaveRename(session.id, e)}
-                    onStartRename={(e) => handleStartRename(session, e)}
-                    onDelete={() => onDeleteSession(session.id)}
-                    onTogglePin={() => onTogglePinSession(session.id)}
-                    menuOpen={activeMenuSessionId === session.id}
-                    onToggleMenu={(e) => {
-                      e.stopPropagation();
-                      setActiveMenuSessionId(
-                        activeMenuSessionId === session.id ? null : session.id
-                      );
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* Bottom actions & settings */}
