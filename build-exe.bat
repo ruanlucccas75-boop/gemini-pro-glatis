@@ -20,6 +20,7 @@ if %errorlevel% neq 0 (
 IF NOT EXIST node_modules (
     echo [1/3] Instalando dependencias necessarias (npm install)...
     call npm install
+    call npm install --no-save @rollup/rollup-win32-x64-msvc @esbuild/win32-x64
     if %errorlevel% neq 0 (
         echo [ERRO] Falha ao instalar dependencias.
         pause
