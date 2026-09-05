@@ -7,7 +7,7 @@ Aplicativo web completo baseado no Google Gemini com interface moderna, suporte 
 ## 📋 Pré-requisitos
 
 Para rodar no seu computador você só precisa ter:
-- **Node.js** (versão 18, 20 ou superior): [Baixar Node.js](https://nodejs.org/)
+- **Node.js** (versão 20, 22 LTS ou superior): [Baixar Node.js](https://nodejs.org/)
 - **Chave de API do Gemini** (gratuita): [Obter no Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ---
