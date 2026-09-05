@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gemini</title>
+    <meta name="description" content="Recriação completa do aplicativo Google Gemini com inteligência artificial conversacional, suporte a imagens, busca na web e histórico." />
+    <meta property="og:title" content="Gemini" />
+    <meta property="og:description" content="Recriação completa do aplicativo Google Gemini com inteligência artificial conversacional, suporte a imagens, busca na web e histórico." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        // 1. Silent dummy WebSocket for Vite HMR in container iframe
+        var NativeWebSocket = window.WebSocket;
+        if (NativeWebSocket) {
+          window.WebSocket = function(url, protocols) {
+            var isHmr = false;
+            if (protocols === 'vite-hmr') isHmr = true;
+            if (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) isHmr = true;
+            if (typeof url === 'string' && (url.indexOf('vite-hmr') !== -1 || url.indexOf(':3000') !== -1 || url.indexOf('localhost') !== -1)) {
+              isHmr = true;
+            }
+
+            if (isHmr) {
+              var target = new EventTarget();
+              target.binaryType = 'blob';
+              target.readyState = 1; // OPEN
+              target.send = function() {};
+              target.close = function() {};
+              setTimeout(function() {
+                try {
+                  target.dispatchEvent(new Event('open'));
+                } catch (e) {}
+              }, 0);
+              return target;
+            }
+            return new NativeWebSocket(url, protocols);
+          };
+          window.WebSocket.prototype = NativeWebSocket.prototype;
+        }
+
+        // 2. Suppress benign Vite websocket logs in console.error
+        var origConsoleError = console.error;
+        console.error = function() {
+          var args = Array.prototype.slice.call(arguments);
+          var msg = args.map(function(a) {
+            return (typeof a === 'object' && a !== null) ? (a.message || JSON.stringify(a)) : String(a);
+          }).join(' ');
+
+          if (msg.indexOf('failed to connect to websocket') !== -1 ||
+              msg.indexOf('WebSocket closed without opened') !== -1 ||
+              msg.indexOf('[vite] failed to connect') !== -1) {
+            return;
+          }
+          return origConsoleError.apply(console, args);
+        };
+
+        // 3. Suppress unhandled rejection for closed WebSockets
+        window.addEventListener('unhandledrejection', function(event) {
+          var reasonStr = String(event && event.reason && (event.reason.message || event.reason) || '');
+          if (reasonStr.indexOf('WebSocket') !== -1 || reasonStr.indexOf('websocket') !== -1) {
+            event.preventDefault();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        }, true);
+
+        // 4. Suppress error events
+        window.addEventListener('error', function(event) {
+          var msg = String(event && event.message || '');
+          if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('websocket') !== -1 || msg.indexOf('[vite]') !== -1) {
+            event.preventDefault();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        }, true);
+      })();
+    </script>
+  </head>
+  <body class="bg-[#131314] text-[#e3e3e3] font-['Plus_Jakarta_Sans',sans-serif] antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

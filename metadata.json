@@ -1,0 +1,6 @@
+{
+  "name": "Gemini",
+  "description": "Recriação completa do aplicativo Google Gemini com inteligência artificial conversacional, suporte a imagens, busca na web e histórico.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
