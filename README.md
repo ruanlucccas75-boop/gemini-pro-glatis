@@ -101,15 +101,21 @@ npm run dev
 npm run electron:dev
 ```
 
-### 2. Gerar o executável (.exe) para Windows:
+### 2. Gerar o executável (.exe) para Windows no seu computador:
+Você pode simplesmente dar **dois cliques no arquivo `build-exe.bat`** na raiz do projeto, ou executar no terminal:
 ```bash
 npm run electron:build:win
 ```
-O instalador `.exe` (instalador e versão portátil) será gerado na pasta **`dist-electron/`**.
+O instalador `.exe` (instalador NSIS e versão portátil) será gerado na pasta **`dist-electron/`**.
 
 ---
 
-## 🛠️ Comandos disponíveis no projeto
+## ⚙️ GitHub Actions (Download do .EXE pelo GitHub)
+
+Quando você envia o código para o GitHub (`git push`), a esteira do GitHub Actions agora compila o executável Windows automaticamente:
+1. Vá na aba **Actions** no seu repositório do GitHub.
+2. Clique na execução mais recente ("CI & Windows App Build").
+3. Na seção **Artifacts**, você verá o **`Gemini-Windows-EXE-Installer`** pronto para download.
 
 | Comando | Descrição |
 | :--- | :--- |

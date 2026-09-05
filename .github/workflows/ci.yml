@@ -1,4 +1,4 @@
-name: CI Build and Test
+name: CI & Windows App Build
 
 on:
   push:
@@ -8,12 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build & Package
+  validate:
+    name: Validate & Lint
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,22 +31,36 @@ jobs:
       - name: Typecheck & Lint
         run: npm run lint
 
-      - name: Build Application
+      - name: Build Web Application
         run: npm run build
         env:
           NODE_ENV: production
 
-      - name: Archive Built Application (Artifact)
+  build-windows-exe:
+    name: Build Windows .EXE App
+    runs-on: windows-latest
+    needs: validate
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (Latest LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows .EXE (Electron Builder)
+        run: npm run electron:build:win
+        env:
+          NODE_ENV: production
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows Executable (.EXE)
         uses: actions/upload-artifact@v4
         with:
-          name: gemini-app-dist
-          path: |
-            dist/
-            public/
-            package.json
-            package-lock.json
-            .env.example
-            start.bat
-            start.sh
-            README.md
+          name: Gemini-Windows-EXE-Installer
+          path: dist-electron/*.exe
           retention-days: 14
