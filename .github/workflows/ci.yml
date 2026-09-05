@@ -57,8 +57,10 @@ jobs:
           name: web-dist
           path: dist
 
-      - name: Install Electron and Builder
-        run: npm install --no-save electron electron-builder
+      - name: Install Runtime Dependencies and Builder
+        run: |
+          npm install --omit=dev
+          npm install --no-save electron electron-builder
 
       - name: Package Windows Executable (.exe)
         run: npx electron-builder --win --x64

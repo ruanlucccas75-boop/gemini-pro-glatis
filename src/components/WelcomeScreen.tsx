@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Code2, Compass, PenTool, Lightbulb, ArrowUpRight } from 'lucide-react';
+import { Code2, Compass, PenTool, Lightbulb, ArrowUpRight } from 'lucide-react';
 
 interface WelcomeScreenProps {
   userName?: string;
@@ -13,37 +13,37 @@ interface PromptCard {
   prompt: string;
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+const WELCOME_CARDS: PromptCard[] = [
+  {
+    title: 'Explicar um conceito',
+    subtitle: 'Entenda tópicos complexos ou teorias científicas de forma simples',
+    icon: <Lightbulb size={20} className="text-amber-400" />,
+    prompt: 'Explique a física quântica e o entrelaçamento quântico de forma simples e intuitiva.',
+  },
+  {
+    title: 'Programar & Depurar',
+    subtitle: 'Crie componentes, resolva bugs ou otimize consultas',
+    icon: <Code2 size={20} className="text-emerald-400" />,
+    prompt: 'Escreva um exemplo prático em TypeScript de um debounce hook com cancelamento.',
+  },
+  {
+    title: 'Planejar roteiro',
+    subtitle: 'Crie planos de viagem, eventos ou rotinas de estudo',
+    icon: <Compass size={20} className="text-blue-400" />,
+    prompt: 'Planeje um roteiro de viagem de 4 dias no Rio de Janeiro com opções gastronômicas e culturais.',
+  },
+  {
+    title: 'Escrever e revisar',
+    subtitle: 'Elabore e-mails persuasivos, ensaios ou posts para redes',
+    icon: <PenTool size={20} className="text-rose-400" />,
+    prompt: 'Escreva uma proposta formal de prestação de serviços de consultoria tecnológica.',
+  },
+];
+
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = React.memo(({
   userName = 'Ruan',
   onSelectPrompt,
 }) => {
-  const cardsToDisplay: PromptCard[] = [
-    {
-      title: 'Explicar um conceito',
-      subtitle: 'Entenda tópicos complexos ou teorias científicas de forma simples',
-      icon: <Lightbulb size={20} className="text-amber-400" />,
-      prompt: 'Explique a física quântica e o entrelaçamento quântico de forma simples e intuitiva.',
-    },
-    {
-      title: 'Programar & Depurar',
-      subtitle: 'Crie componentes, resolva bugs ou otimize consultas',
-      icon: <Code2 size={20} className="text-emerald-400" />,
-      prompt: 'Escreva um exemplo prático em TypeScript de um debounce hook com cancelamento.',
-    },
-    {
-      title: 'Planejar roteiro',
-      subtitle: 'Crie planos de viagem, eventos ou rotinas de estudo',
-      icon: <Compass size={20} className="text-blue-400" />,
-      prompt: 'Planeje um roteiro de viagem de 4 dias no Rio de Janeiro com opções gastronômicas e culturais.',
-    },
-    {
-      title: 'Escrever e revisar',
-      subtitle: 'Elabore e-mails persuasivos, ensaios ou posts para redes',
-      icon: <PenTool size={20} className="text-rose-400" />,
-      prompt: 'Escreva uma proposta formal de prestação de serviços de consultoria tecnológica.',
-    },
-  ];
-
   return (
     <div className="flex-1 flex flex-col justify-between max-w-4xl w-full mx-auto px-4 py-8 md:py-12">
       {/* Top Greeting */}
@@ -60,7 +60,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
       {/* Suggestion cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 my-8">
-        {cardsToDisplay.map((card, i) => (
+        {WELCOME_CARDS.map((card, i) => (
           <button
             key={i}
             id={`suggestion-card-${i}`}
@@ -90,4 +90,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
     </div>
   );
-};
+});
+
+WelcomeScreen.displayName = 'WelcomeScreen';

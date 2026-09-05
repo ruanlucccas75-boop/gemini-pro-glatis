@@ -33,7 +33,7 @@ const AVAILABLE_MODELS: ModelOption[] = [
   },
 ];
 
-export const TopBar: React.FC<TopBarProps> = ({
+export const TopBar: React.FC<TopBarProps> = React.memo(({
   onToggleSidebar,
   selectedModel,
   onSelectModel,
@@ -236,4 +236,6 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
     </header>
   );
-};
+});
+
+TopBar.displayName = 'TopBar';

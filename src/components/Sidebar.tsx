@@ -33,7 +33,7 @@ interface SidebarProps {
   onOpenHelp: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+export const Sidebar: React.FC<SidebarProps> = React.memo(({
   isOpen,
   onCloseMobile,
   sessions,
@@ -293,7 +293,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </aside>
     </>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 const SessionItem: React.FC<{
   session: ChatSession;
@@ -308,7 +310,7 @@ const SessionItem: React.FC<{
   onTogglePin: () => void;
   menuOpen: boolean;
   onToggleMenu: (e: React.MouseEvent) => void;
-}> = ({
+}> = React.memo(({
   session,
   isSelected,
   isEditing,
@@ -396,4 +398,6 @@ const SessionItem: React.FC<{
       )}
     </div>
   );
-};
+});
+
+SessionItem.displayName = 'SessionItem';

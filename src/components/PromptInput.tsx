@@ -26,7 +26,7 @@ interface PromptInputProps {
   onRemoveAttachment: (id: string) => void;
 }
 
-export const PromptInput: React.FC<PromptInputProps> = ({
+export const PromptInput: React.FC<PromptInputProps> = React.memo(({
   input,
   setInput,
   onSend,
@@ -307,4 +307,6 @@ export const PromptInput: React.FC<PromptInputProps> = ({
       </div>
     </div>
   );
-};
+});
+
+PromptInput.displayName = 'PromptInput';

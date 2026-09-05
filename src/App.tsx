@@ -67,13 +67,30 @@ export default function App() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  // Save sessions to localStorage
+  // Debounced save sessions to localStorage (avoids blocking main thread on every character during streaming)
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-    } catch (e) {
-      console.error('Failed to save sessions to localStorage:', e);
-    }
+    if (isStreaming) return; // Do not block UI thread during active streaming
+
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      } catch (e) {
+        console.error('Failed to save sessions to localStorage:', e);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [sessions, isStreaming]);
+
+  // Flush save on beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [sessions]);
 
   // Sync theme
@@ -233,89 +250,118 @@ export default function App() {
       const decoder = new TextDecoder();
       let accumulatedText = '';
       let buffer = '';
+      let rafId: number | null = null;
+      let lastRenderedText = '';
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+      // Throttles React state updates to 60fps display refresh rate
+      const scheduleRafUpdate = () => {
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          if (lastRenderedText === accumulatedText) return;
+          lastRenderedText = accumulatedText;
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === activeId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === geminiMessageId
+                        ? {
+                            ...m,
+                            content: accumulatedText,
+                          }
+                        : m
+                    ),
+                  }
+                : s
+            )
+          );
+        });
+      };
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.replace('data: ', ''));
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-              if (data.error) {
-                setSessions((prev) =>
-                  prev.map((s) =>
-                    s.id === activeId
-                      ? {
-                          ...s,
-                          messages: s.messages.map((m) =>
-                            m.id === geminiMessageId
-                              ? {
-                                  ...m,
-                                  isStreaming: false,
-                                  error: cleanErrorMessage(data.error),
-                                }
-                              : m
-                          ),
-                        }
-                      : s
-                  )
-                );
-                setIsStreaming(false);
-                return;
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.replace('data: ', ''));
+
+                if (data.error) {
+                  if (rafId !== null) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                  }
+                  setSessions((prev) =>
+                    prev.map((s) =>
+                      s.id === activeId
+                        ? {
+                            ...s,
+                            messages: s.messages.map((m) =>
+                              m.id === geminiMessageId
+                                ? {
+                                    ...m,
+                                    isStreaming: false,
+                                    error: cleanErrorMessage(data.error),
+                                  }
+                                : m
+                            ),
+                          }
+                        : s
+                    )
+                  );
+                  setIsStreaming(false);
+                  return;
+                }
+
+                if (data.text) {
+                  accumulatedText += data.text;
+                  scheduleRafUpdate();
+                }
+
+                if (data.done) {
+                  if (rafId !== null) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                  }
+                  setSessions((prev) =>
+                    prev.map((s) =>
+                      s.id === activeId
+                        ? {
+                            ...s,
+                            messages: s.messages.map((m) =>
+                              m.id === geminiMessageId
+                                ? {
+                                    ...m,
+                                    content: accumulatedText,
+                                    isStreaming: false,
+                                    sources: data.sources,
+                                  }
+                                : m
+                            ),
+                          }
+                        : s
+                    )
+                  );
+                  setIsStreaming(false);
+                }
+              } catch {
+                // Ignore partial JSON chunks
               }
-
-              if (data.text) {
-                accumulatedText += data.text;
-                setSessions((prev) =>
-                  prev.map((s) =>
-                    s.id === activeId
-                      ? {
-                          ...s,
-                          messages: s.messages.map((m) =>
-                            m.id === geminiMessageId
-                              ? {
-                                  ...m,
-                                  content: accumulatedText,
-                                }
-                              : m
-                          ),
-                        }
-                      : s
-                  )
-                );
-              }
-
-              if (data.done) {
-                setSessions((prev) =>
-                  prev.map((s) =>
-                    s.id === activeId
-                      ? {
-                          ...s,
-                          messages: s.messages.map((m) =>
-                            m.id === geminiMessageId
-                              ? {
-                                  ...m,
-                                  isStreaming: false,
-                                  sources: data.sources,
-                                }
-                              : m
-                          ),
-                        }
-                      : s
-                  )
-                );
-                setIsStreaming(false);
-              }
-            } catch {
-              // Ignore partial JSON chunks
             }
           }
+        }
+      } finally {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
         }
       }
     } catch (err: any) {

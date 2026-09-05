@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import http from 'node:http';
-import { fork } from 'node:child_process';
+import { fork, spawn } from 'node:child_process';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,11 +47,12 @@ function isServerRunning(timeout = 800) {
 function getServerScriptPath() {
   const appPath = app.getAppPath();
   const candidates = [
-    path.join(appPath, 'dist', 'server.cjs').replace('app.asar', 'app.asar.unpacked'),
     path.join(appPath, 'dist', 'server.cjs'),
+    path.join(appPath, 'dist', 'server.cjs').replace('app.asar', 'app.asar.unpacked'),
     path.join(__dirname, 'dist', 'server.cjs'),
-    path.join(process.resourcesPath, 'app', 'dist', 'server.cjs'),
     path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'server.cjs'),
+    path.join(process.resourcesPath, 'app', 'dist', 'server.cjs'),
+    path.resolve(process.cwd(), 'dist', 'server.cjs'),
   ];
 
   for (const candidate of candidates) {
@@ -64,41 +65,70 @@ function getServerScriptPath() {
 
 // Start backend Express server if not already running
 async function ensureServerRunning() {
-  const alreadyRunning = await isServerRunning(600);
+  const alreadyRunning = await isServerRunning(800);
   if (alreadyRunning) {
     console.log('[Electron] Server already running at', SERVER_URL);
     return true;
   }
 
   const scriptPath = getServerScriptPath();
-  if (!fs.existsSync(scriptPath)) {
-    console.warn(`[Electron] dist/server.cjs not found at ${scriptPath}. Run 'npm run build' first.`);
-    return false;
+  console.log('[Electron] Checking server script at:', scriptPath);
+
+  if (fs.existsSync(scriptPath)) {
+    // 1. Try loading server in-process (native ASAR support, zero IPC friction)
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.PORT = SERVER_PORT.toString();
+      const { pathToFileURL } = await import('node:url');
+      await import(pathToFileURL(scriptPath).href);
+      console.log('[Electron] Server started in-process');
+    } catch (inProcessErr) {
+      console.warn('[Electron] In-process start failed, falling back to fork:', inProcessErr);
+      try {
+        serverProcess = fork(scriptPath, [], {
+          env: {
+            ...process.env,
+            PORT: SERVER_PORT.toString(),
+            NODE_ENV: 'production',
+            ELECTRON_RUN_AS_NODE: '1',
+          },
+          stdio: 'inherit',
+        });
+
+        serverProcess.on('error', (err) => {
+          console.error('[Electron] Failed to start backend server process:', err);
+        });
+
+        serverProcess.on('exit', (code, signal) => {
+          console.log(`[Electron] Server process exited with code ${code}, signal ${signal}`);
+        });
+      } catch (forkErr) {
+        console.error('[Electron] Failed to fork server process:', forkErr);
+      }
+    }
+  } else if (!app.isPackaged) {
+    console.log('[Electron] Development mode: Starting dev server via npm run dev...');
+    const devCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    try {
+      serverProcess = spawn(devCmd, ['run', 'dev'], {
+        cwd: app.getAppPath(),
+        stdio: 'inherit',
+        shell: true,
+        env: {
+          ...process.env,
+          PORT: SERVER_PORT.toString(),
+        },
+      });
+    } catch (spawnErr) {
+      console.error('[Electron] Failed to spawn dev server:', spawnErr);
+    }
   }
 
-  console.log('[Electron] Spawning background server from:', scriptPath);
-  serverProcess = fork(scriptPath, [], {
-    env: {
-      ...process.env,
-      PORT: SERVER_PORT.toString(),
-      NODE_ENV: app.isPackaged ? 'production' : (process.env.NODE_ENV || 'production'),
-    },
-    stdio: 'inherit',
-  });
-
-  serverProcess.on('error', (err) => {
-    console.error('[Electron] Failed to start backend server:', err);
-  });
-
-  serverProcess.on('exit', (code, signal) => {
-    console.log(`[Electron] Server process exited with code ${code}, signal ${signal}`);
-  });
-
-  // Poll until the server responds
-  for (let attempt = 0; attempt < 25; attempt++) {
-    await new Promise((r) => setTimeout(r, 400));
-    if (await isServerRunning(600)) {
-      console.log('[Electron] Backend server is ready!');
+  // Poll until the server responds with retries (up to ~18 seconds)
+  for (let attempt = 0; attempt < 36; attempt++) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (await isServerRunning(800)) {
+      console.log('[Electron] Backend server is ready and responding at', SERVER_URL);
       return true;
     }
   }
@@ -210,10 +240,25 @@ app.whenReady().then(async () => {
           <body>
             <div class="box">
               <h2>Inicializando servidor...</h2>
-              <p>O servidor em <code>${SERVER_URL}</code> ainda não respondeu.</p>
-              <p>Se estiver testando localmente, execute <code>npm run build</code> antes de gerar o executável.</p>
+              <p>Conectando ao servidor em <code>${SERVER_URL}</code>...</p>
+              <p style="font-size: 13px; color: #aaa;">Se o app estiver iniciando pela primeira vez, aguarde alguns segundos.</p>
               <button onclick="location.reload()">Tentar novamente</button>
             </div>
+            <script>
+              let attempts = 0;
+              const timer = setInterval(async () => {
+                try {
+                  const res = await fetch('${SERVER_URL}/api/health');
+                  if (res.ok) {
+                    clearInterval(timer);
+                    window.location.href = '${SERVER_URL}';
+                  }
+                } catch (e) {
+                  attempts++;
+                  if (attempts > 60) clearInterval(timer);
+                }
+              }, 1000);
+            </script>
           </body>
         </html>
       `)}`

@@ -1,8 +1,8 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
-import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
@@ -255,15 +255,30 @@ app.post('/api/chat/stream', async (req, res) => {
 });
 
 async function startServer() {
-  // Vite middleware setup
+  // In development, mount Vite middleware
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // In production, serve built static files from dist
+    const candidates = [
+      path.join(process.cwd(), 'dist'),
+      typeof __dirname !== 'undefined' ? __dirname : '',
+      typeof __dirname !== 'undefined' ? path.join(__dirname, '..', 'dist') : '',
+    ].filter(Boolean);
+
+    let distPath = path.join(process.cwd(), 'dist');
+    for (const p of candidates) {
+      if (fs.existsSync(path.join(p, 'index.html'))) {
+        distPath = p;
+        break;
+      }
+    }
+
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

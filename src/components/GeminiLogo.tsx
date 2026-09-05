@@ -6,7 +6,7 @@ interface GeminiLogoProps {
   animate?: boolean;
 }
 
-export const GeminiLogo: React.FC<GeminiLogoProps> = ({
+export const GeminiLogo: React.FC<GeminiLogoProps> = React.memo(({
   className = '',
   size = 28,
   animate = false,
@@ -41,4 +41,6 @@ export const GeminiLogo: React.FC<GeminiLogoProps> = ({
       />
     </svg>
   );
-};
+});
+
+GeminiLogo.displayName = 'GeminiLogo';
