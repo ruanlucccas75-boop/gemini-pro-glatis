@@ -34,6 +34,23 @@
   background: rgba(0, 0, 0, 0.25);
 }
 
+/* Highly visible scrollbar for menus */
+.scrollbar-visible::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  margin: 4px 0;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.45);
+  border-radius: 9999px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.75);
+}
+
 /* Gemini text gradient */
 .gemini-gradient-text {
   background: linear-gradient(74deg, #4285f4 0%, #9b72cb 9%, #d96570 20%, #d96570 24%, #9b72cb 35%, #4285f4 44%, #ffffff 50%, #4285f4 56%, #9b72cb 75%, #d96570 100%);

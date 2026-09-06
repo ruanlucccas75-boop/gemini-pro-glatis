@@ -12,6 +12,9 @@ import {
   Edit3,
   AlertCircle,
   Clock,
+  Sparkles,
+  Zap,
+  ArrowDownCircle,
 } from 'lucide-react';
 import { Message } from '../types';
 import { GeminiLogo } from './GeminiLogo';
@@ -24,6 +27,7 @@ interface ChatMessagesProps {
   isStreaming: boolean;
   onRegenerate: () => void;
   onEditPrompt: (text: string) => void;
+  onOpenUpdateModal?: () => void;
 }
 
 // Memoized User Message Item
@@ -117,9 +121,18 @@ const ModelMessageItem = React.memo<{
 
   return (
     <div className="flex items-start gap-3 sm:gap-4 max-w-3xl">
-      {/* Gemini Sparkle Logo */}
+      {/* Astra Logo */}
       <div className="shrink-0 mt-1">
-        <GeminiLogo size={24} animate={msg.isStreaming} />
+        <div className="relative">
+          <img
+            src="/astra-logo.jpg"
+            alt="Astra"
+            className={`w-6 h-6 rounded-full object-cover ring-1 ring-cyan-400/50 shadow-xs ${
+              msg.isStreaming ? 'animate-pulse ring-cyan-300 ring-2' : ''
+            }`}
+            referrerPolicy="no-referrer"
+          />
+        </div>
       </div>
 
       {/* Content & Actions */}
@@ -285,7 +298,7 @@ ModelMessageItem.displayName = 'ModelMessageItem';
 
 export const ChatMessages: React.FC<ChatMessagesProps> = React.memo(({
   messages,
-  userEmail = 'ruanlucccas75@gmail.com',
+  userEmail = 'Você',
   isStreaming,
   onRegenerate,
   onEditPrompt,

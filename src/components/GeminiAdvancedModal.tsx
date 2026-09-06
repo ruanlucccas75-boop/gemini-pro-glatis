@@ -25,7 +25,7 @@ export const GeminiAdvancedModal: React.FC<GeminiAdvancedModalProps> = ({
     },
     {
       title: 'Todos os Modelos Liberados',
-      desc: 'Gemini 3.8 Flash, Gemini 3.8 Thinking e Gemini 3.1 Pro estão 100% disponíveis no seletor para uso imediato.',
+      desc: 'Astra 3.8 Flash, Astra 3.8 Thinking e Astra 3.1 Pro estão 100% disponíveis no seletor para uso imediato.',
     },
     {
       title: 'Servidor Central com Processamento Otimizado',

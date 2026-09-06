@@ -14,8 +14,10 @@ import {
   Sun,
   Search,
   X,
+  User,
+  LogIn,
 } from 'lucide-react';
-import { ChatSession } from '../types';
+import { ChatSession, UserProfile } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -31,6 +33,8 @@ interface SidebarProps {
   onToggleDarkMode: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
+  currentUser?: UserProfile | null;
+  onOpenLogin?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = React.memo(({
@@ -47,6 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
   onToggleDarkMode,
   onOpenSettings,
   onOpenHelp,
+  currentUser,
+  onOpenLogin,
 }) => {
   const [activeMenuSessionId, setActiveMenuSessionId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -93,8 +99,26 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
           isOpen ? 'w-72 translate-x-0' : '-translate-x-full md:w-0 md:translate-x-0 md:overflow-hidden'
         }`}
       >
-        {/* Top Header: New Chat button & Search bar */}
-        <div className="p-3 pt-4 space-y-2.5">
+        {/* Top Header: Astra Brand, New Chat button & Search bar */}
+        <div className="p-3 pt-4 space-y-3">
+          {/* Astra App Header */}
+          <div className="flex items-center gap-2.5 px-2 pb-1">
+            <img
+              src="/astra-logo.jpg"
+              alt="Astra Logo"
+              className="w-8 h-8 rounded-full object-cover ring-1 ring-cyan-400/40 shadow-sm"
+              referrerPolicy="no-referrer"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold tracking-wider uppercase bg-gradient-to-r from-cyan-300 via-sky-200 to-indigo-300 bg-clip-text text-transparent">
+                Astra
+              </span>
+              <span className="text-[10px] text-neutral-400 tracking-wider uppercase font-medium">
+                Artificial Intelligence
+              </span>
+            </div>
+          </div>
+
           <button
             id="new-chat-btn"
             onClick={() => {
@@ -219,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                 </div>
                 {regularSessions.length === 0 && pinnedSessions.length === 0 ? (
                   <div className="px-3 py-4 text-xs text-neutral-500 text-center">
-                    Suas conversas recentes com o Gemini aparecerão aqui.
+                    Suas conversas recentes com a Astra aparecerão aqui.
                   </div>
                 ) : (
                   <div className="space-y-0.5 mt-1">
@@ -257,6 +281,37 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
 
         {/* Bottom actions & settings */}
         <div className="p-3 border-t border-white/5 space-y-1">
+          {/* User profile quick access */}
+          {currentUser ? (
+            <button
+              id="sidebar-user-btn"
+              onClick={onOpenLogin}
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors text-left group"
+              title="Clique para trocar ou gerenciar sua conta"
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0 shadow-xs">
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-white truncate text-[11px] leading-tight">
+                  {currentUser.name}
+                </p>
+                <p className="text-[10px] text-neutral-400 truncate leading-tight">
+                  {currentUser.email}
+                </p>
+              </div>
+            </button>
+          ) : (
+            <button
+              id="sidebar-login-btn"
+              onClick={onOpenLogin}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs text-cyan-300 hover:bg-cyan-500/10 transition-colors font-medium"
+            >
+              <LogIn size={16} />
+              <span>Entrar na sua conta</span>
+            </button>
+          )}
+
           <button
             id="settings-modal-btn"
             onClick={onOpenSettings}

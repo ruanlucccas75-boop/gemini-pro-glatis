@@ -186,10 +186,10 @@ export const PromptInput: React.FC<PromptInputProps> = React.memo(({
             onKeyDown={handleKeyDown}
             placeholder={
               enableSearch
-                ? "Pergunte ao Gemini com Pesquisa na web ativada..."
+                ? "Pergunte ao Astra com Pesquisa na web ativada..."
                 : thinking
-                ? "Pergunte ao Gemini com Raciocínio lógico detalhado..."
-                : "Pergunte ao Gemini..."
+                ? "Pergunte ao Astra com Raciocínio lógico detalhado..."
+                : "Pergunte ao Astra..."
             }
             rows={1}
             className="w-full bg-transparent text-white placeholder-neutral-400 text-sm sm:text-base resize-none focus:outline-none leading-relaxed max-h-48"
@@ -223,17 +223,17 @@ export const PromptInput: React.FC<PromptInputProps> = React.memo(({
               id="web-search-toggle-btn"
               type="button"
               onClick={onToggleSearch}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
                 enableSearch
-                  ? 'bg-blue-500/25 text-[#a8c7fa] border border-blue-500/40 shadow-xs'
-                  : 'bg-white/5 text-neutral-300 hover:text-white border border-white/10 hover:border-white/20'
+                  ? 'bg-sky-500/20 text-sky-200 border border-sky-400/50 shadow-sm ring-1 ring-sky-400/30'
+                  : 'bg-white/[0.07] hover:bg-white/[0.12] text-neutral-300 hover:text-white border border-white/10 hover:border-white/20'
               }`}
-              title="Pesquisa Google em tempo real"
+              title="Pesquisa Google em tempo real na web"
             >
-              <Globe size={14} className={enableSearch ? 'text-[#a8c7fa]' : 'text-neutral-400'} />
+              <Globe size={14} className={enableSearch ? 'text-sky-300' : 'text-neutral-400'} />
               <span className="inline font-medium">Pesquisar na web</span>
               {enableSearch && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#a8c7fa] animate-pulse ml-0.5" />
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse ml-0.5" />
               )}
             </button>
 
@@ -242,12 +242,12 @@ export const PromptInput: React.FC<PromptInputProps> = React.memo(({
               id="thinking-toggle-btn"
               type="button"
               onClick={onToggleThinking}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
                 thinking
-                  ? 'bg-purple-500/25 text-purple-300 border border-purple-500/40 shadow-xs'
-                  : 'bg-white/5 text-neutral-300 hover:text-white border border-white/10 hover:border-white/20'
+                  ? 'bg-purple-500/20 text-purple-200 border border-purple-400/50 shadow-sm ring-1 ring-purple-400/30'
+                  : 'bg-white/[0.07] hover:bg-white/[0.12] text-neutral-300 hover:text-white border border-white/10 hover:border-white/20'
               }`}
-              title="Ativar raciocínio detalhado passo a passo"
+              title="Ativar raciocínio detalhado passo a passo da Astra"
             >
               <Brain size={14} className={thinking ? 'text-purple-300' : 'text-neutral-400'} />
               <span className="inline font-medium">Raciocínio</span>
@@ -297,12 +297,12 @@ export const PromptInput: React.FC<PromptInputProps> = React.memo(({
         </div>
       </div>
 
-      {/* Signature Gemini Disclaimer */}
+      {/* Signature Astra Disclaimer */}
       <div className="text-center mt-2.5 text-[11px] text-neutral-400 leading-tight">
-        O Gemini pode apresentar informações imprecisas, inclusive sobre pessoas.
+        A Astra pode apresentar informações imprecisas, inclusive sobre pessoas.
         Por isso, cheque as respostas.{' '}
         <span className="underline cursor-pointer hover:text-neutral-300">
-          Sua privacidade e o Gemini Apps
+          Sua privacidade e o Astra
         </span>
       </div>
     </div>

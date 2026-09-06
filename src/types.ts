@@ -32,7 +32,12 @@ export interface ChatSession {
   isPinned?: boolean;
 }
 
-export type ModelId = 'gemini-3.8-flash' | 'gemini-3.1-pro-preview' | 'gemini-flash-thinking';
+export type ModelId =
+  | 'gemini-3.8-flash'
+  | 'gemini-3.1-flash-lite'
+  | 'gemini-flash-latest'
+  | 'gemini-flash-thinking'
+  | 'gemini-3.1-pro-preview';
 
 export interface ModelOption {
   id: ModelId;
@@ -40,4 +45,12 @@ export interface ModelOption {
   badge?: string;
   description: string;
   isPro?: boolean;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  provider: 'google' | 'custom' | 'guest';
 }

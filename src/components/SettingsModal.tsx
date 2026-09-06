@@ -115,11 +115,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </h3>
             <div className="p-3 rounded-xl bg-[#282a2c] space-y-2 text-xs text-neutral-400">
               <div className="flex items-center justify-between text-white font-medium">
-                <span>Versão do Gemini</span>
-                <span className="text-[#a8c7fa]">Gemini 3.8 Series</span>
+                <span>Versão do Astra</span>
+                <span className="text-cyan-300">Astra 3.8 Series</span>
               </div>
               <p>
-                Recriação autêntica da experiência do Google Gemini, oferecendo suporte a modelos de alta performance, pesquisa na web e raciocínio lógico.
+                Astra Inteligência Artificial - Plataforma avançada com suporte a modelos de alta performance, visão computacional, pesquisa na web e raciocínio lógico.
               </p>
             </div>
           </div>

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Attachment, ChatSession, Message, ModelId } from './types';
+import { Attachment, ChatSession, Message, ModelId, UserProfile } from './types';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -13,25 +13,39 @@ import { PromptInput } from './components/PromptInput';
 import { SettingsModal } from './components/SettingsModal';
 import { GeminiAdvancedModal } from './components/GeminiAdvancedModal';
 import { HelpModal } from './components/HelpModal';
+import { LoginModal } from './components/LoginModal';
 
 const STORAGE_KEY = 'gemini_app_sessions_v1';
 const THEME_KEY = 'gemini_app_theme';
+const USER_STORAGE_KEY = 'astra_user_profile_v1';
 
 function cleanErrorMessage(raw: string): string {
-  if (!raw) return 'Falha na conexão com o Gemini. Por favor, tente novamente.';
+  if (!raw) return 'Falha na conexão com a Astra. Por favor, tente novamente.';
+
+  const str = typeof raw === 'string' ? raw : JSON.stringify(raw);
+
   if (
-    raw.includes('503') ||
-    raw.includes('UNAVAILABLE') ||
-    raw.includes('high demand') ||
-    raw.includes('Resource has been exhausted') ||
-    raw.includes('RESOURCE_EXHAUSTED')
+    str.includes('503') ||
+    str.includes('UNAVAILABLE') ||
+    str.includes('high demand') ||
+    str.includes('Spikes in demand') ||
+    str.includes('Resource has been exhausted') ||
+    str.includes('RESOURCE_EXHAUSTED') ||
+    str.includes('429')
   ) {
-    return 'Os servidores do modelo estão com alta demanda temporária. Clique em "Tentar novamente" para continuar.';
+    return 'Os servidores do modelo estão com alta demanda temporária. Experimente alternar para o modelo "Astra Flash Lite" no topo ou clique em "Tentar novamente".';
   }
-  if (raw.includes('API_KEY')) {
-    return 'A chave de API do Gemini não foi encontrada ou é inválida.';
+
+  if (str.includes('API_KEY')) {
+    return 'A chave de API da Astra não foi encontrada ou é inválida.';
   }
-  return raw;
+
+  // If the error message contains internal backend trace lines or JSON dump
+  if (str.startsWith('{') || str.includes('Backend Error') || str.includes('[Gemini Server]')) {
+    return 'Instabilidade temporária nos servidores da Astra. Por favor, clique em tentar novamente.';
+  }
+
+  return str;
 }
 
 export default function App() {
@@ -66,6 +80,35 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  // User Profile Authentication state - cada usuário entra com a sua própria conta
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem(USER_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  const handleLogin = useCallback((profile: UserProfile) => {
+    setCurrentUser(profile);
+    try {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(profile));
+    } catch (e) {
+      console.error('Failed to save profile:', e);
+    }
+    setLoginOpen(false);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    } catch (e) {}
+    setLoginOpen(false);
+  }, []);
 
   // Debounced save sessions to localStorage (avoids blocking main thread on every character during streaming)
   useEffect(() => {
@@ -152,9 +195,15 @@ export default function App() {
   }, []);
 
   // Send message flow
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (
+    textToSend?: string,
+    attachmentsToSend?: Attachment[],
+    explicitHistory?: Message[]
+  ) => {
+    const activeAttachments =
+      attachmentsToSend !== undefined ? attachmentsToSend : attachments;
     const messageContent = (textToSend !== undefined ? textToSend : input).trim();
-    if (!messageContent && attachments.length === 0) return;
+    if (!messageContent && activeAttachments.length === 0) return;
     if (isStreaming) return;
 
     const userMessageId = Math.random().toString(36).substring(7);
@@ -165,7 +214,7 @@ export default function App() {
       role: 'user',
       content: messageContent,
       timestamp: Date.now(),
-      attachments: attachments.length > 0 ? [...attachments] : undefined,
+      attachments: activeAttachments.length > 0 ? [...activeAttachments] : undefined,
     };
 
     const initialGeminiMessage: Message = {
@@ -200,15 +249,15 @@ export default function App() {
     } else {
       // Append to current session
       setSessions((prev) =>
-        prev.map((s) =>
-          s.id === activeId
-            ? {
-                ...s,
-                updatedAt: Date.now(),
-                messages: [...s.messages, newUserMessage, initialGeminiMessage],
-              }
-            : s
-        )
+        prev.map((s) => {
+          if (s.id !== activeId) return s;
+          const baseMsgs = explicitHistory !== undefined ? explicitHistory : s.messages;
+          return {
+            ...s,
+            updatedAt: Date.now(),
+            messages: [...baseMsgs, newUserMessage, initialGeminiMessage],
+          };
+        })
       );
     }
 
@@ -218,10 +267,24 @@ export default function App() {
     setIsStreaming(true);
 
     try {
-      // Prepare payload with conversation history
+      // Prepare payload with sanitized conversation history
       const historySession = sessions.find((s) => s.id === activeId);
-      const existingMsgs = historySession ? historySession.messages : [];
-      const fullHistory = [...existingMsgs, newUserMessage];
+      const rawExistingMsgs =
+        explicitHistory !== undefined
+          ? explicitHistory
+          : historySession
+          ? historySession.messages
+          : [];
+
+      // Filter out any messages with errors or empty placeholder content
+      const cleanHistory = rawExistingMsgs.filter(
+        (m) =>
+          !m.error &&
+          (Boolean(m.content?.trim()) ||
+            (Array.isArray(m.attachments) && m.attachments.length > 0))
+      );
+
+      const fullHistory = [...cleanHistory, newUserMessage];
 
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
@@ -378,7 +441,7 @@ export default function App() {
                         isStreaming: false,
                         error: cleanErrorMessage(
                           err?.message ||
-                            'Falha na conexão com o Gemini. Por favor, tente novamente.'
+                            'Falha na conexão com a Astra. Por favor, tente novamente.'
                         ),
                       }
                     : m
@@ -402,22 +465,16 @@ export default function App() {
       .find((m) => m.role === 'user');
     if (!lastUserMessage) return;
 
-    // Remove the last model message
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === currentSessionId
-          ? {
-              ...s,
-              messages: s.messages.filter(
-                (m, idx) => !(idx === s.messages.length - 1 && m.role === 'model')
-              ),
-            }
-          : s
-      )
-    );
+    // Slice history strictly prior to the last user message to avoid duplicate or dangling errors
+    const lastUserIndex = currentMessages.lastIndexOf(lastUserMessage);
+    const historyBeforeRetry = currentMessages.slice(0, lastUserIndex);
 
-    // Trigger re-send
-    handleSendMessage(lastUserMessage.content);
+    // Trigger clean re-send with explicit prior history and attachments
+    handleSendMessage(
+      lastUserMessage.content,
+      lastUserMessage.attachments,
+      historyBeforeRetry
+    );
   };
 
   // Handle edit prompt
@@ -431,7 +488,7 @@ export default function App() {
         isDarkMode ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-[#f0f4f9] text-[#1f1f1f]'
       }`}
     >
-      {/* Google Gemini Sidebar */}
+      {/* Astra Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
@@ -446,6 +503,8 @@ export default function App() {
         onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenHelp={() => setHelpOpen(true)}
+        currentUser={currentUser}
+        onOpenLogin={() => setLoginOpen(true)}
       />
 
       {/* Main Container */}
@@ -457,49 +516,63 @@ export default function App() {
           onSelectModel={(model) => setSelectedModel(model)}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenAdvancedModal={() => setAdvancedOpen(true)}
-          userEmail="ruanlucccas75@gmail.com"
+          currentUser={currentUser}
+          onOpenLogin={() => setLoginOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Conversation Area or Welcome Screen */}
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          {currentMessages.length === 0 ? (
-            <WelcomeScreen
-              userName="Ruan"
-              onSelectPrompt={(prompt) => {
-                setInput(prompt);
-                handleSendMessage(prompt);
-              }}
-            />
-          ) : (
-            <ChatMessages
-              messages={currentMessages}
-              userEmail="ruanlucccas75@gmail.com"
-              isStreaming={isStreaming}
-              onRegenerate={handleRegenerate}
-              onEditPrompt={handleEditPrompt}
-            />
-          )}
+        <main className="flex-1 flex flex-col min-h-0 relative">
+          {/* Scrollable conversation / welcome body */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 flex flex-col justify-start">
+            {currentMessages.length === 0 ? (
+              <WelcomeScreen
+                userName={currentUser?.name ? currentUser.name.split(' ')[0] : 'Visitante'}
+                onSelectPrompt={(prompt) => {
+                  setInput(prompt);
+                  handleSendMessage(prompt);
+                }}
+              />
+            ) : (
+              <ChatMessages
+                messages={currentMessages}
+                userEmail={currentUser?.email || currentUser?.name || 'Você'}
+                isStreaming={isStreaming}
+                onRegenerate={handleRegenerate}
+                onEditPrompt={handleEditPrompt}
+              />
+            )}
+          </div>
 
-          {/* Floating Prompt Input Bar */}
-          <PromptInput
-            input={input}
-            setInput={setInput}
-            onSend={() => handleSendMessage()}
-            isLoading={isStreaming}
-            enableSearch={enableSearch}
-            onToggleSearch={() => setEnableSearch((prev) => !prev)}
-            thinking={thinking}
-            onToggleThinking={() => setThinking((prev) => !prev)}
-            attachments={attachments}
-            onAddAttachment={(att) => setAttachments((prev) => [...prev, att])}
-            onRemoveAttachment={(id) =>
-              setAttachments((prev) => prev.filter((a) => a.id !== id))
-            }
-          />
+          {/* Floating Prompt Input Bar - ALWAYS PINNED & VISIBLE AT THE BOTTOM */}
+          <div className="shrink-0 z-20 pb-2">
+            <PromptInput
+              input={input}
+              setInput={setInput}
+              onSend={() => handleSendMessage()}
+              isLoading={isStreaming}
+              enableSearch={enableSearch}
+              onToggleSearch={() => setEnableSearch((prev) => !prev)}
+              thinking={thinking}
+              onToggleThinking={() => setThinking((prev) => !prev)}
+              attachments={attachments}
+              onAddAttachment={(att) => setAttachments((prev) => [...prev, att])}
+              onRemoveAttachment={(id) =>
+                setAttachments((prev) => prev.filter((a) => a.id !== id))
+              }
+            />
+          </div>
         </main>
       </div>
 
       {/* Modals */}
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onLogin={handleLogin}
+        canDismiss={!!currentUser}
+      />
+
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}

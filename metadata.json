@@ -1,6 +1,6 @@
 {
-  "name": "Gemini",
-  "description": "Recriação completa do aplicativo Google Gemini com inteligência artificial conversacional, suporte a imagens, busca na web e histórico.",
+  "name": "Astra",
+  "description": "Astra - Inteligência Artificial avançada com conversação rápida, análise multimodal, geração de código e busca na web.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
