@@ -20,7 +20,7 @@ const THEME_KEY = 'gemini_app_theme';
 const USER_STORAGE_KEY = 'astra_user_profile_v1';
 
 function cleanErrorMessage(raw: string): string {
-  if (!raw) return 'Falha na conexão com a Astra. Por favor, tente novamente.';
+  if (!raw) return 'Oscilação temporária de conexão. Clique em "Tentar novamente" abaixo para reconectar.';
 
   const str = typeof raw === 'string' ? raw : JSON.stringify(raw);
 
@@ -31,9 +31,12 @@ function cleanErrorMessage(raw: string): string {
     str.includes('Spikes in demand') ||
     str.includes('Resource has been exhausted') ||
     str.includes('RESOURCE_EXHAUSTED') ||
-    str.includes('429')
+    str.includes('429') ||
+    str.includes('oscilação') ||
+    str.includes('oscilacao') ||
+    str.includes('alta demanda')
   ) {
-    return 'Os servidores do modelo estão com alta demanda temporária. Experimente alternar para o modelo "Astra Flash Lite" no topo ou clique em "Tentar novamente".';
+    return 'Os servidores estavam com alta demanda temporária. A rota de contingência foi ativada — clique em "Tentar novamente" para receber a resposta imediatamente.';
   }
 
   if (str.includes('API_KEY')) {
@@ -42,7 +45,7 @@ function cleanErrorMessage(raw: string): string {
 
   // If the error message contains internal backend trace lines or JSON dump
   if (str.startsWith('{') || str.includes('Backend Error') || str.includes('[Gemini Server]')) {
-    return 'Instabilidade temporária nos servidores da Astra. Por favor, clique em tentar novamente.';
+    return 'Instabilidade temporária nos servidores. Por favor, clique em tentar novamente.';
   }
 
   return str;

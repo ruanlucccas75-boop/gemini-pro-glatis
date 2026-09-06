@@ -48,7 +48,12 @@ app.post('/api/chat/stream', async (req, res) => {
   res.flushHeaders?.();
 
   const sendEvent = (data: Record<string, any>) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (res.writableEnded || res.destroyed) return;
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (e) {
+      console.warn('[Gemini Server] Failed to write SSE chunk:', e);
+    }
   };
 
   try {
@@ -131,14 +136,15 @@ app.post('/api/chat/stream', async (req, res) => {
     const isThinkingRequested = thinking === true || model === 'gemini-flash-thinking';
 
     if (model === 'gemini-3.1-flash-lite') {
-      candidates.push('gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash');
+      candidates.push('gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest');
+    } else if (model === 'gemini-3.1-pro-preview') {
+      candidates.push('gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-3.1-flash-lite');
     } else if (model === 'gemini-flash-latest') {
       candidates.push('gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.8-flash');
-    } else if (model === 'gemini-3.1-pro-preview') {
-      candidates.push('gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite');
     } else {
-      // Default / standard: gemini-3.8-flash or gemini-flash-thinking
-      candidates.push('gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite');
+      // Default: gemini-3.8-flash or gemini-flash-thinking
+      // Placing gemini-3.1-flash-lite immediately after ensures instant zero-lag failover during spikes
+      candidates.push('gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest');
     }
 
     const modelsToTry = Array.from(new Set(candidates));
@@ -156,133 +162,108 @@ app.post('/api/chat/stream', async (req, res) => {
       ? `${baseSystemInstruction}\n\n${systemInstruction}`
       : baseSystemInstruction;
 
-    const isOverloadedOrUnavailable = (err: any): boolean => {
-      const code = err?.status || err?.code || err?.error?.code;
-      const msg = typeof err?.message === 'string' ? err.message : JSON.stringify(err || '');
-      return (
-        code === 503 ||
-        code === 429 ||
-        msg.includes('503') ||
-        msg.includes('429') ||
-        msg.includes('UNAVAILABLE') ||
-        msg.includes('high demand') ||
-        msg.includes('Spikes in demand') ||
-        msg.includes('RESOURCE_EXHAUSTED') ||
-        msg.includes('Resource has been exhausted')
-      );
-    };
-
     let completed = false;
     let lastError: any = null;
 
     modelLoop: for (const currentModel of modelsToTry) {
-      // For each model, attempt streaming (with instant fallback if 503/high demand)
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        let chunksSent = 0;
+      let chunksSent = 0;
 
-        try {
-          const config: any = {
-            systemInstruction: finalInstruction,
-            maxOutputTokens: 8192,
+      try {
+        const config: any = {
+          systemInstruction: finalInstruction,
+          maxOutputTokens: 8192,
+        };
+
+        // Enable search if requested
+        if (enableSearch) {
+          config.tools = [{ googleSearch: {} }];
+        }
+
+        // Latency optimization: For Gemini 3 series models, setting thinkingLevel to LOW
+        // ensures instantaneous time-to-first-token unless deep thinking is explicitly requested.
+        if (currentModel === 'gemini-3.8-flash' || currentModel === 'gemini-3.1-pro-preview') {
+          config.thinkingConfig = {
+            thinkingLevel: isThinkingRequested ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
           };
+        } else if (currentModel === 'gemini-3.1-flash-lite') {
+          config.thinkingConfig = {
+            thinkingLevel: ThinkingLevel.MINIMAL,
+          };
+        }
 
-          // Enable search if requested
-          if (enableSearch) {
-            config.tools = [{ googleSearch: {} }];
+        const streamResponse = await ai.models.generateContentStream({
+          model: currentModel,
+          contents,
+          config,
+        });
+
+        const sources: Array<{ title?: string; url?: string }> = [];
+
+        for await (const chunk of streamResponse) {
+          const chunkText = chunk.text;
+          if (chunkText) {
+            sendEvent({ text: chunkText });
+            chunksSent++;
           }
 
-          // Latency optimization: For Gemini 3 series models, setting thinkingLevel to LOW
-          // ensures instantaneous time-to-first-token unless deep thinking is explicitly requested.
-          if (currentModel === 'gemini-3.8-flash' || currentModel === 'gemini-3.1-pro-preview') {
-            config.thinkingConfig = {
-              thinkingLevel: isThinkingRequested ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
-            };
-          } else if (currentModel === 'gemini-3.1-flash-lite') {
-            config.thinkingConfig = {
-              thinkingLevel: ThinkingLevel.MINIMAL,
-            };
-          }
-
-          const streamResponse = await ai.models.generateContentStream({
-            model: currentModel,
-            contents,
-            config,
-          });
-
-          const sources: Array<{ title?: string; url?: string }> = [];
-
-          for await (const chunk of streamResponse) {
-            const chunkText = chunk.text;
-            if (chunkText) {
-              sendEvent({ text: chunkText });
-              chunksSent++;
-            }
-
-            // Check for search grounding metadata
-            const candidate = chunk.candidates?.[0];
-            const groundingMetadata = candidate?.groundingMetadata;
-            if (groundingMetadata?.groundingChunks) {
-              for (const gChunk of groundingMetadata.groundingChunks) {
-                if (gChunk.web?.uri) {
-                  sources.push({
-                    title: gChunk.web.title || gChunk.web.uri,
-                    url: gChunk.web.uri,
-                  });
-                }
+          // Check for search grounding metadata
+          const candidate = chunk.candidates?.[0];
+          const groundingMetadata = candidate?.groundingMetadata;
+          if (groundingMetadata?.groundingChunks) {
+            for (const gChunk of groundingMetadata.groundingChunks) {
+              if (gChunk.web?.uri) {
+                sources.push({
+                  title: gChunk.web.title || gChunk.web.uri,
+                  url: gChunk.web.uri,
+                });
               }
             }
           }
-
-          sendEvent({
-            done: true,
-            sources: sources.length > 0 ? sources : undefined,
-            modelUsed: currentModel,
-          });
-          res.end();
-          completed = true;
-          break modelLoop;
-        } catch (err: any) {
-          lastError = err;
-          console.warn(
-            `[Gemini Server] Model '${currentModel}' (attempt ${attempt}) failed:`,
-            err?.message || err
-          );
-
-          // If partial response was already streamed to the user, do not silently restart
-          if (chunksSent > 0) {
-            break modelLoop;
-          }
-
-          // If this model is experiencing 503 high demand or 429 rate limit,
-          // DO NOT wait through slow retries on the same congested model.
-          // Instantly switch to the next fallback model in line!
-          if (isOverloadedOrUnavailable(err)) {
-            console.log(
-              `[Gemini Server] Model '${currentModel}' is under high demand (503/429). Switching immediately to fallback model...`
-            );
-            break; // Break the retry loop for currentModel, advance to next in modelLoop
-          }
-
-          // Brief delay before at most 1 fast retry for unexpected network disconnects
-          if (attempt < 2) {
-            await new Promise((r) => setTimeout(r, 300));
-          }
         }
+
+        sendEvent({
+          done: true,
+          sources: sources.length > 0 ? sources : undefined,
+          modelUsed: currentModel,
+        });
+        res.end();
+        completed = true;
+        break modelLoop;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(
+          `[Gemini Server] Model '${currentModel}' failed:`,
+          err?.message || err
+        );
+
+        // If partial response was already streamed to the user, do not restart
+        if (chunksSent > 0) {
+          break modelLoop;
+        }
+
+        // If no chunks were sent yet, immediately advance to the next fallback model in line
+        continue modelLoop;
       }
     }
 
     // Secondary fallback: synchronous generateContent across fast models
     if (!completed) {
-      for (const fallbackModel of ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.8-flash']) {
+      for (const fallbackModel of ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest']) {
         try {
           console.log(`[Gemini Server] Attempting non-streaming fallback with '${fallbackModel}'...`);
+          const fallbackConfig: any = {
+            systemInstruction: finalInstruction,
+            maxOutputTokens: 8192,
+          };
+          if (fallbackModel === 'gemini-3.1-flash-lite') {
+            fallbackConfig.thinkingConfig = {
+              thinkingLevel: ThinkingLevel.MINIMAL,
+            };
+          }
           const nonStreamResponse = await ai.models.generateContent({
             model: fallbackModel,
             contents,
-            config: {
-              systemInstruction: finalInstruction,
-              maxOutputTokens: 8192,
-            },
+            config: fallbackConfig,
           });
 
           if (nonStreamResponse.text) {
@@ -304,7 +285,7 @@ app.post('/api/chat/stream', async (req, res) => {
     if (!completed) {
       const rawMsg = typeof lastError?.message === 'string' ? lastError.message : JSON.stringify(lastError || '');
       let friendlyError =
-        'Os servidores do Gemini estão com alta demanda momentânea. Experimente selecionar o modelo "Gemini Flash Lite" no menu superior ou clique em tentar novamente.';
+        'Os servidores apresentaram uma oscilação momentânea de alta demanda. Clique em "Tentar novamente" para reconectar com a rota otimizada.';
 
       if (rawMsg.includes('API_KEY')) {
         friendlyError =
@@ -316,11 +297,13 @@ app.post('/api/chat/stream', async (req, res) => {
     }
   } catch (err: any) {
     console.error('Error in /api/chat/stream:', err);
-    sendEvent({
-      error:
-        'Ocorreu uma oscilação momentânea de conexão. Por favor, clique em tentar novamente.',
-    });
-    res.end();
+    if (!res.writableEnded && !res.destroyed) {
+      sendEvent({
+        error:
+          'Ocorreu uma oscilação momentânea de conexão. Por favor, clique em tentar novamente.',
+      });
+      res.end();
+    }
   }
 });
 
