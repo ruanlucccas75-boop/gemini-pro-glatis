@@ -35,6 +35,9 @@ interface SidebarProps {
   onOpenHelp: () => void;
   currentUser?: UserProfile | null;
   onOpenLogin?: () => void;
+  isUpdateAvailable?: boolean;
+  onOpenUpdateModal?: () => void;
+  installedVersion?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = React.memo(({
@@ -53,6 +56,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
   onOpenHelp,
   currentUser,
   onOpenLogin,
+  isUpdateAvailable,
+  onOpenUpdateModal,
+  installedVersion,
 }) => {
   const [activeMenuSessionId, setActiveMenuSessionId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -309,6 +315,31 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             >
               <LogIn size={16} />
               <span>Entrar na sua conta</span>
+            </button>
+          )}
+
+          {onOpenUpdateModal && (
+            <button
+              id="sidebar-updates-btn"
+              onClick={() => {
+                onOpenUpdateModal();
+                onCloseMobile();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Sparkles size={16} className={isUpdateAvailable ? "text-cyan-400" : "text-neutral-400"} />
+                <span>Atualizações</span>
+              </div>
+              {isUpdateAvailable ? (
+                <span className="px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold border border-cyan-500/30 animate-pulse">
+                  Nova v2.5.0
+                </span>
+              ) : (
+                <span className="text-[10px] text-neutral-500 font-mono">
+                  {installedVersion || 'v2.4.2'}
+                </span>
+              )}
             </button>
           )}
 

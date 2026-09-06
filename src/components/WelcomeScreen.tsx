@@ -1,9 +1,13 @@
 import React from 'react';
-import { Code2, Compass, PenTool, Lightbulb, ArrowUpRight } from 'lucide-react';
+import { Code2, Compass, PenTool, Lightbulb, ArrowUpRight, Sparkles, Zap } from 'lucide-react';
+import { NEXT_VERSION } from '../utils/updateService';
 
 interface WelcomeScreenProps {
   userName?: string;
   onSelectPrompt: (prompt: string) => void;
+  isUpdateAvailable?: boolean;
+  onOpenUpdateModal?: () => void;
+  installedVersion?: string;
 }
 
 interface PromptCard {
@@ -43,6 +47,9 @@ const WELCOME_CARDS: PromptCard[] = [
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = React.memo(({
   userName = 'Ruan',
   onSelectPrompt,
+  isUpdateAvailable,
+  onOpenUpdateModal,
+  installedVersion,
 }) => {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-4 flex flex-col gap-4">
@@ -87,6 +94,37 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = React.memo(({
           </div>
         </div>
       </div>
+
+      {/* In-app Update Announcement Card */}
+      {isUpdateAvailable && onOpenUpdateModal && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1e1f20] via-[#24283b]/90 to-[#1e1f20] border border-cyan-400/40 p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 via-sky-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-cyan-500/25">
+              <Sparkles size={22} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">Nova Atualização da Astra Disponível!</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40 font-mono">
+                  {NEXT_VERSION}
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 mt-0.5">
+                A IA agora conta com respostas até 2x mais rápidas, modo raciocínio e pesquisa na web aperfeiçoada.
+              </p>
+            </div>
+          </div>
+          <button
+            id="welcome-update-now-btn"
+            onClick={onOpenUpdateModal}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-600 text-white font-bold text-xs hover:opacity-95 transition-all shadow-md shadow-cyan-500/25 cursor-pointer shrink-0"
+          >
+            <Zap size={14} />
+            <span>Atualizar Agora no App</span>
+            <ArrowUpRight size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Suggestion cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">

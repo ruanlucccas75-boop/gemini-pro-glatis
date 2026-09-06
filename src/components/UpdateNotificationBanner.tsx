@@ -5,11 +5,15 @@ import { NEXT_VERSION } from '../utils/updateService';
 interface UpdateNotificationBannerProps {
   onOpenUpdateModal: () => void;
   onDismiss: () => void;
+  currentVersion?: string;
+  nextVersion?: string;
 }
 
 export const UpdateNotificationBanner: React.FC<UpdateNotificationBannerProps> = ({
   onOpenUpdateModal,
   onDismiss,
+  currentVersion,
+  nextVersion = NEXT_VERSION,
 }) => {
   return (
     <div className="mx-4 sm:mx-6 my-2 animate-in fade-in slide-in-from-top-3 duration-300">

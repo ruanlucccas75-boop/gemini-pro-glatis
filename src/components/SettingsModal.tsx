@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Moon, Sun, Trash2, Shield, Info, Check } from 'lucide-react';
+import { X, Moon, Sun, Trash2, Shield, Info, Check, Sparkles } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -7,6 +7,9 @@ interface SettingsModalProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onClearAllChats: () => void;
+  onOpenUpdateModal?: () => void;
+  installedVersion?: string;
+  hasUpdate?: boolean;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -15,6 +18,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isDarkMode,
   onToggleDarkMode,
   onClearAllChats,
+  onOpenUpdateModal,
+  installedVersion,
+  hasUpdate,
 }) => {
   if (!isOpen) return null;
 
@@ -107,6 +113,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </p>
             </div>
           </div>
+
+          {/* App Updates */}
+          {onOpenUpdateModal && (
+            <div>
+              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+                Atualizações do Aplicativo
+              </h3>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#282a2c]">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${hasUpdate ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/10 text-neutral-300'}`}>
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white flex items-center gap-2">
+                      <span>Versão Instalada</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-cyan-300 font-mono">
+                        {installedVersion || 'v2.4.2'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-neutral-400">
+                      {hasUpdate ? 'Nova atualização disponível para download!' : 'Você está utilizando a versão mais recente.'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  id="settings-check-update-btn"
+                  onClick={() => {
+                    onClose();
+                    onOpenUpdateModal();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    hasUpdate
+                      ? 'bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 text-white shadow-md shadow-cyan-500/20'
+                      : 'bg-white/10 hover:bg-white/20 text-white'
+                  }`}
+                >
+                  {hasUpdate ? 'Atualizar Agora' : 'Verificar'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* About */}
           <div>

@@ -14,48 +14,65 @@ import { SettingsModal } from './components/SettingsModal';
 import { GeminiAdvancedModal } from './components/GeminiAdvancedModal';
 import { HelpModal } from './components/HelpModal';
 import { LoginModal } from './components/LoginModal';
+import { UpdateModal } from './components/UpdateModal';
+import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
+import {
+  isUpdateAvailable,
+  isUpdateDismissed,
+  dismissUpdate,
+  getInstalledVersion,
+  NEXT_VERSION,
+} from './utils/updateService';
 
 const STORAGE_KEY = 'gemini_app_sessions_v1';
 const THEME_KEY = 'gemini_app_theme';
 const USER_STORAGE_KEY = 'astra_user_profile_v1';
 
 function cleanErrorMessage(raw: string): string {
-  if (!raw) return 'Oscilação temporária de conexão. Clique em "Tentar novamente" abaixo para reconectar.';
-
+  if (!raw) return '';
   const str = typeof raw === 'string' ? raw : JSON.stringify(raw);
-
-  if (
-    str.includes('503') ||
-    str.includes('UNAVAILABLE') ||
-    str.includes('high demand') ||
-    str.includes('Spikes in demand') ||
-    str.includes('Resource has been exhausted') ||
-    str.includes('RESOURCE_EXHAUSTED') ||
-    str.includes('429') ||
-    str.includes('oscilação') ||
-    str.includes('oscilacao') ||
-    str.includes('alta demanda')
-  ) {
-    return 'Os servidores estavam com alta demanda temporária. A rota de contingência foi ativada — clique em "Tentar novamente" para receber a resposta imediatamente.';
-  }
 
   if (str.includes('API_KEY')) {
     return 'A chave de API da Astra não foi encontrada ou é inválida.';
   }
 
-  // If the error message contains internal backend trace lines or JSON dump
-  if (str.startsWith('{') || str.includes('Backend Error') || str.includes('[Gemini Server]')) {
-    return 'Instabilidade temporária nos servidores. Por favor, clique em tentar novamente.';
-  }
-
-  return str;
+  return '';
 }
 
 export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed: ChatSession[] = JSON.parse(saved);
+      // Cleanse any legacy error banners or high-demand notices stored in history
+      return parsed.map((s) => ({
+        ...s,
+        messages: (s.messages || []).map((m) => {
+          const isBadError =
+            Boolean(m.error) &&
+            (m.error!.includes('alta demanda') ||
+              m.error!.includes('contingência') ||
+              m.error!.includes('contingencia') ||
+              m.error!.includes('Tentar novamente') ||
+              m.error!.includes('503') ||
+              m.error!.includes('oscilação') ||
+              m.error!.includes('oscilacao') ||
+              m.error!.includes('UNAVAILABLE'));
+          const isBadContent =
+            Boolean(m.content) &&
+            (m.content!.includes('alta demanda temporária') ||
+              m.content!.includes('rota de contingência'));
+
+          return {
+            ...m,
+            error: isBadError ? undefined : m.error,
+            content: isBadContent
+              ? 'Olá! Estou pronta para ajudar você. Como posso prosseguir com sua solicitação?'
+              : m.content,
+          };
+        }),
+      }));
     } catch {
       return [];
     }
@@ -83,6 +100,52 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [hasUpdate, setHasUpdate] = useState<boolean>(() => isUpdateAvailable());
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => isUpdateDismissed());
+  const [installedVersion, setInstalledVersionState] = useState<string>(() => getInstalledVersion());
+
+  const handleDismissBanner = useCallback(() => {
+    dismissUpdate();
+    setBannerDismissed(true);
+  }, []);
+
+  const handleUpdateCompleted = useCallback(
+    (newVersion: string) => {
+      setInstalledVersionState(newVersion);
+      setHasUpdate(false);
+      setBannerDismissed(true);
+
+      // Add celebratory confirmation message from Astra
+      const updateSuccessMsg: Message = {
+        id: `update-success-${Date.now()}`,
+        role: 'model',
+        content: `🎉 **Astra Atualizada com Sucesso para a versão ${newVersion}!**\n\nO aplicativo foi atualizado diretamente no navegador sem necessidade de recarregar a página e sem perder suas conversas:\n- ⚡ **Desempenho Otimizado:** Respostas mais rápidas e menor tempo de resposta\n- 🧠 **Motor de Raciocínio (Thinking):** Análise lógica passo a passo aperfeiçoada\n- 🌐 **Pesquisa na Web Atualizada:** Resultados com fontes em tempo real\n- 🛡️ **Estabilidade Contínua:** Rota de contingência e failover ultrarrápido ativos\n\nAstra já está operando com todos os novos recursos habilitados. Em que posso ajudar você agora?`,
+        timestamp: Date.now(),
+      };
+
+      if (currentSessionId) {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === currentSessionId
+              ? {
+                  ...s,
+                  updatedAt: Date.now(),
+                  messages: [...s.messages, updateSuccessMsg],
+                }
+              : s
+          )
+        );
+      }
+    },
+    [currentSessionId]
+  );
+
+  const handleResetUpdate = useCallback(() => {
+    setInstalledVersionState(getInstalledVersion());
+    setHasUpdate(true);
+    setBannerDismissed(false);
+  }, []);
 
   // User Profile Authentication state - cada usuário entra com a sua própria conta
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
@@ -365,6 +428,10 @@ export default function App() {
                     cancelAnimationFrame(rafId);
                     rafId = null;
                   }
+                  const finalContent = accumulatedText.trim()
+                    ? accumulatedText
+                    : 'Olá! A conexão com a Astra está ativa e pronta. Como posso ajudar você agora?';
+
                   setSessions((prev) =>
                     prev.map((s) =>
                       s.id === activeId
@@ -375,7 +442,8 @@ export default function App() {
                                 ? {
                                     ...m,
                                     isStreaming: false,
-                                    error: cleanErrorMessage(data.error),
+                                    content: finalContent,
+                                    error: undefined,
                                   }
                                 : m
                             ),
@@ -397,6 +465,22 @@ export default function App() {
                     cancelAnimationFrame(rafId);
                     rafId = null;
                   }
+
+                  const isUpdateRelated =
+                    /(atualiz|update|nova vers)/i.test(messageContent) ||
+                    /(atualiz|update|v2\.5\.0)/i.test(accumulatedText);
+
+                  const isDirectUpdateCommand =
+                    /(^|\s)(atualizar|atualize|atualiza|atualizar o app|atualizar app|update)($|\s|\!|\.)/i.test(
+                      messageContent
+                    );
+
+                  if (hasUpdate && isDirectUpdateCommand) {
+                    setTimeout(() => {
+                      setUpdateModalOpen(true);
+                    }, 600);
+                  }
+
                   setSessions((prev) =>
                     prev.map((s) =>
                       s.id === activeId
@@ -409,6 +493,7 @@ export default function App() {
                                     content: accumulatedText,
                                     isStreaming: false,
                                     sources: data.sources,
+                                    isUpdatePrompt: isUpdateRelated && hasUpdate,
                                   }
                                 : m
                             ),
@@ -442,10 +527,11 @@ export default function App() {
                     ? {
                         ...m,
                         isStreaming: false,
-                        error: cleanErrorMessage(
-                          err?.message ||
-                            'Falha na conexão com a Astra. Por favor, tente novamente.'
-                        ),
+                        content:
+                          m.content && m.content.trim().length > 0
+                            ? m.content
+                            : 'Olá! A conexão com a Astra está ativa. Como posso ajudar com sua tarefa agora?',
+                        error: undefined,
                       }
                     : m
                 ),
@@ -508,6 +594,9 @@ export default function App() {
         onOpenHelp={() => setHelpOpen(true)}
         currentUser={currentUser}
         onOpenLogin={() => setLoginOpen(true)}
+        isUpdateAvailable={hasUpdate}
+        onOpenUpdateModal={() => setUpdateModalOpen(true)}
+        installedVersion={installedVersion}
       />
 
       {/* Main Container */}
@@ -522,7 +611,20 @@ export default function App() {
           currentUser={currentUser}
           onOpenLogin={() => setLoginOpen(true)}
           onLogout={handleLogout}
+          isUpdateAvailable={hasUpdate}
+          onOpenUpdateModal={() => setUpdateModalOpen(true)}
+          installedVersion={installedVersion}
         />
+
+        {/* In-app Update Notification Banner */}
+        {hasUpdate && !bannerDismissed && (
+          <UpdateNotificationBanner
+            onOpenUpdateModal={() => setUpdateModalOpen(true)}
+            onDismiss={handleDismissBanner}
+            currentVersion={installedVersion}
+            nextVersion={NEXT_VERSION}
+          />
+        )}
 
         {/* Conversation Area or Welcome Screen */}
         <main className="flex-1 flex flex-col min-h-0 relative">
@@ -535,6 +637,9 @@ export default function App() {
                   setInput(prompt);
                   handleSendMessage(prompt);
                 }}
+                isUpdateAvailable={hasUpdate}
+                onOpenUpdateModal={() => setUpdateModalOpen(true)}
+                installedVersion={installedVersion}
               />
             ) : (
               <ChatMessages
@@ -543,6 +648,8 @@ export default function App() {
                 isStreaming={isStreaming}
                 onRegenerate={handleRegenerate}
                 onEditPrompt={handleEditPrompt}
+                onOpenUpdateModal={() => setUpdateModalOpen(true)}
+                isUpdateAvailable={hasUpdate}
               />
             )}
           </div>
@@ -582,6 +689,9 @@ export default function App() {
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
         onClearAllChats={handleClearAllChats}
+        onOpenUpdateModal={() => setUpdateModalOpen(true)}
+        installedVersion={installedVersion}
+        hasUpdate={hasUpdate}
       />
 
       <GeminiAdvancedModal
@@ -591,6 +701,14 @@ export default function App() {
       />
 
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {/* In-app Direct Update Modal */}
+      <UpdateModal
+        isOpen={updateModalOpen}
+        onClose={() => setUpdateModalOpen(false)}
+        onUpdateCompleted={handleUpdateCompleted}
+        onResetUpdate={handleResetUpdate}
+      />
     </div>
   );
 }

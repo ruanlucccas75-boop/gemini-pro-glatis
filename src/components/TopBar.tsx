@@ -11,6 +11,9 @@ interface TopBarProps {
   currentUser: UserProfile | null;
   onOpenLogin: () => void;
   onLogout: () => void;
+  isUpdateAvailable?: boolean;
+  onOpenUpdateModal?: () => void;
+  installedVersion?: string;
 }
 
 const AVAILABLE_MODELS: ModelOption[] = [
@@ -56,6 +59,9 @@ export const TopBar: React.FC<TopBarProps> = React.memo(({
   currentUser,
   onOpenLogin,
   onLogout,
+  isUpdateAvailable,
+  onOpenUpdateModal,
+  installedVersion,
 }) => {
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -226,6 +232,19 @@ export const TopBar: React.FC<TopBarProps> = React.memo(({
 
       {/* Right side: Unlimited badge, Help icon, Profile avatar */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* In-app Update Button Indicator */}
+        {isUpdateAvailable && onOpenUpdateModal && (
+          <button
+            id="topbar-update-btn"
+            onClick={onOpenUpdateModal}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-indigo-500/20 border border-cyan-400/50 text-cyan-300 hover:border-cyan-300 hover:bg-cyan-500/30 transition-all cursor-pointer shadow-xs animate-pulse"
+            title="Nova atualização da Astra disponível! Clique para atualizar agora no app"
+          >
+            <Sparkles size={13} className="text-cyan-400 shrink-0" />
+            <span className="font-semibold text-[11px] sm:text-xs">Atualizar App</span>
+          </button>
+        )}
+
         <button
           id="top-unlimited-btn"
           onClick={onOpenAdvancedModal}
@@ -285,6 +304,31 @@ export const TopBar: React.FC<TopBarProps> = React.memo(({
                 </div>
 
                 <div className="pt-2 border-t border-white/5 space-y-1">
+                  {onOpenUpdateModal && (
+                    <button
+                      id="topbar-menu-update-btn"
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        onOpenUpdateModal();
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs text-neutral-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles size={14} className={isUpdateAvailable ? "text-cyan-400" : "text-neutral-400"} />
+                        <span>Atualizações</span>
+                      </span>
+                      {isUpdateAvailable ? (
+                        <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold">
+                          Nova v2.5.0
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-neutral-500 font-mono">
+                          {installedVersion || 'v2.4.2'}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
                   <button
                     id="switch-account-btn"
                     onClick={() => {

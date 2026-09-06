@@ -21,6 +21,7 @@ export interface Message {
   isStreaming?: boolean;
   error?: string;
   modelUsed?: string;
+  isUpdatePrompt?: boolean;
 }
 
 export interface ChatSession {

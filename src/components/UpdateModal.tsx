@@ -25,12 +25,14 @@ interface UpdateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateCompleted: (newVersion: string) => void;
+  onResetUpdate?: () => void;
 }
 
 export const UpdateModal: React.FC<UpdateModalProps> = ({
   isOpen,
   onClose,
   onUpdateCompleted,
+  onResetUpdate,
 }) => {
   const [currentVersion, setCurrentVersion] = useState<string>(getInstalledVersion());
   const [isUpdating, setIsUpdating] = useState(false);
@@ -89,6 +91,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     setUpdateSuccess(false);
     setProgress(0);
     setIsUpdating(false);
+    onResetUpdate?.();
   };
 
   return (

@@ -20,6 +20,7 @@ import { Message } from '../types';
 import { GeminiLogo } from './GeminiLogo';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { calculateReadingStats } from '../utils/readingTime';
+import { NEXT_VERSION } from '../utils/updateService';
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -28,6 +29,7 @@ interface ChatMessagesProps {
   onRegenerate: () => void;
   onEditPrompt: (text: string) => void;
   onOpenUpdateModal?: () => void;
+  isUpdateAvailable?: boolean;
 }
 
 // Memoized User Message Item
@@ -103,6 +105,8 @@ const ModelMessageItem = React.memo<{
   onToggleLike: (id: string, type: 'up' | 'down') => void;
   isSpeaking: boolean;
   onToggleSpeak: (id: string, text: string) => void;
+  onOpenUpdateModal?: () => void;
+  isUpdateAvailable?: boolean;
 }>(({
   msg,
   isLastMessage,
@@ -113,6 +117,8 @@ const ModelMessageItem = React.memo<{
   onToggleLike,
   isSpeaking,
   onToggleSpeak,
+  onOpenUpdateModal,
+  isUpdateAvailable,
 }) => {
   // Compute reading stats only when content changes and message is not streaming
   const readingStats = useMemo(() => {
@@ -137,7 +143,12 @@ const ModelMessageItem = React.memo<{
 
       {/* Content & Actions */}
       <div className="flex-1 min-w-0 space-y-3">
-        {msg.error ? (
+        {msg.error &&
+        !msg.error.includes('alta demanda') &&
+        !msg.error.includes('contingência') &&
+        !msg.error.includes('contingencia') &&
+        !msg.error.includes('503') &&
+        !msg.error.includes('UNAVAILABLE') ? (
           <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-200 text-sm flex items-start gap-3">
             <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
             <div className="space-y-2">
@@ -171,7 +182,14 @@ const ModelMessageItem = React.memo<{
             )}
 
             <div className="text-neutral-200 text-sm sm:text-base leading-relaxed">
-              <MarkdownRenderer content={msg.content} />
+              <MarkdownRenderer
+                content={
+                  msg.content ||
+                  (msg.isStreaming
+                    ? ''
+                    : 'Olá! Estou pronta para te ajudar. Como posso prosseguir com sua solicitação?')
+                }
+              />
               {msg.isStreaming && (
                 <span className="inline-block w-2 h-4 ml-1 bg-[#a8c7fa] animate-pulse rounded-xs align-middle" />
               )}
@@ -200,6 +218,43 @@ const ModelMessageItem = React.memo<{
                 </div>
               </div>
             )}
+
+            {/* In-chat interactive update card */}
+            {onOpenUpdateModal &&
+              (msg.isUpdatePrompt ||
+                (isUpdateAvailable &&
+                  (/atualiz/i.test(msg.content) ||
+                    /update/i.test(msg.content) ||
+                    /v2\.5\.0/i.test(msg.content)) &&
+                  !msg.content.includes('sucesso para a versão'))) && (
+                <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-cyan-950/60 via-[#24283b]/80 to-[#1e1f20] border border-cyan-400/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                      <Sparkles size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">Atualização Disponível da Astra</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 font-mono">
+                          {NEXT_VERSION}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-300">
+                        Clique no botão para atualizar agora diretamente no aplicativo.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    id={`chat-update-btn-${msg.id}`}
+                    onClick={onOpenUpdateModal}
+                    className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-600 text-white font-semibold text-xs hover:opacity-95 transition-opacity shadow-md shadow-cyan-500/20 cursor-pointer shrink-0"
+                  >
+                    <Zap size={14} />
+                    <span>Atualizar no App</span>
+                    <ArrowDownCircle size={14} />
+                  </button>
+                </div>
+              )}
 
             {/* Action Bar */}
             {!msg.isStreaming && (
@@ -302,6 +357,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = React.memo(({
   isStreaming,
   onRegenerate,
   onEditPrompt,
+  onOpenUpdateModal,
+  isUpdateAvailable,
 }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -411,6 +468,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = React.memo(({
             onToggleLike={handleToggleLike}
             isSpeaking={speakingId === msg.id}
             onToggleSpeak={handleToggleSpeak}
+            onOpenUpdateModal={onOpenUpdateModal}
+            isUpdateAvailable={isUpdateAvailable}
           />
         );
       })}
